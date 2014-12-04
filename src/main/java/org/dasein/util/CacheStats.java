@@ -151,13 +151,13 @@ public class CacheStats {
     private static int getIndex(Event event, long value) {
         if(value < event.bucketSize) { return 0; }
         final int adjustedValue = (int)(value/event.bucketSize);
-        final int index = log2(adjustedValue);
+        final int index = log2plus1(adjustedValue);
         return Math.min(index, maxIndex);
     }
     
     /** http://stackoverflow.com/questions/3305059 */
-    private static int log2(int n){
-        return 31 - Integer.numberOfLeadingZeros(n);
+    private static int log2plus1(int n){
+        return 32 - Integer.numberOfLeadingZeros(n);
     }
 
     public String getSummary() {
@@ -172,7 +172,7 @@ public class CacheStats {
             msg.append(event).append(" counts:\n");
             int j=1;
             for(int i=0;i<maxIndex;i++, j*=2) {
-                msg.append(event.bucketSize*(j-1)).append(" - ").append(event.bucketSize*j).append(": ").append(getCount(event, i)).append("\n");
+                msg.append(event.bucketSize*(j/2)).append(" - ").append(event.bucketSize*j).append(": ").append(getCount(event, i)).append("\n");
             }
             msg.append("> ").append(event.bucketSize*j/2).append(": ").append(getCount(event, maxIndex)).append("\n");
         }
