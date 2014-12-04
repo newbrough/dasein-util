@@ -66,6 +66,12 @@ public class CacheStats {
         final String propValue = System.getProperty(property, Integer.toString(defaultValue));
         return Integer.parseInt(propValue);
     }
+    
+    public static void resetAll() {
+        for(CacheStats stats : statsByType.values()) {
+            stats.reset();
+        }
+    }
 
     // register MBean when class is loaded
     static {
@@ -224,9 +230,7 @@ public class CacheStats {
         }
         
         public void reset() {
-            for(CacheStats stats : statsByType.values()) {
-                stats.reset();
-            }
+            resetAll();
         }
     }
 }
