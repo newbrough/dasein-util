@@ -18,7 +18,7 @@
 
 package org.dasein.util;
 
-import com.sun.istack.internal.Nullable;
+import javax.annotation.Nullable;
 import org.apache.log4j.Logger;
 import org.dasein.util.uom.time.Millisecond;
 import org.dasein.util.uom.time.TimePeriod;
