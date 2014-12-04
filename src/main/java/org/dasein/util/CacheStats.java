@@ -45,13 +45,9 @@ public class CacheStats {
                 e.printStackTrace();
             }
         }
+        
+        statsByType.clear();
     }
-    
-    // register MBean when class is loaded
-    static {
-        reloadProperties();
-    };
-
     
     private static final CacheStats NULL_INSTANCE = new NullStats();
     private static String enabledRegex;
@@ -70,6 +66,11 @@ public class CacheStats {
         final String propValue = System.getProperty(property, Integer.toString(defaultValue));
         return Integer.parseInt(propValue);
     }
+
+    // register MBean when class is loaded
+    static {
+        reloadProperties();
+    };
 
     /////////////////////
     
