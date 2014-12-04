@@ -47,12 +47,24 @@ import java.util.concurrent.ConcurrentMap;
  * @param <V> the type of objects stored in the cache
  */
 public class ConcurrentCache<K,V> implements ConcurrentMap<K,V> {
+    private static class CacheEntry<T> extends SoftReference<T> {
+        public final long createTime = System.currentTimeMillis();
+        public CacheEntry(T referent) {
+            super(referent);
+        }
+    }
     /**
      * The hash map that backs up this cache.
      */
-    //private HashMap<K,WeakReference<V>> cache = new HashMap<K,WeakReference<V>>();
-    private HashMap<K,SoftReference<V>> cache = new HashMap<K,SoftReference<V>>();
+    private HashMap<K,CacheEntry<V>> cache = new HashMap<K,CacheEntry<V>>();
 
+    private final CacheStats stats;
+    
+    public ConcurrentCache(CacheStats stats) {
+        this.stats = stats; 
+    }
+    
+    
     /**
      * Clears out all elements of the cache and starts fresh.
      */
@@ -72,7 +84,7 @@ public class ConcurrentCache<K,V> implements ConcurrentMap<K,V> {
     public boolean containsKey(Object key) {
         synchronized( this ) {
             //WeakReference ref;
-            SoftReference ref;
+            CacheEntry ref;
             V item;
             
             if( !cache.containsKey(key) ) {
@@ -145,27 +157,35 @@ public class ConcurrentCache<K,V> implements ConcurrentMap<K,V> {
     @SuppressWarnings("unchecked")
     public V get(Object key) {
         synchronized( this ) {
-            //WeakReference ref;
-            SoftReference ref;
-            V item;
+            final CacheEntry<V> ref = cache.get(key);
             
-            if( !containsKey(key) ) {
+            // no reference?  was purged or never loaded
+            if(ref==null) {
+                stats.reportMiss();
                 return null;
             }
-            ref = cache.get(key);
-            item = (V)ref.get();
+            
+            final V item = (V)ref.get();
+            final long age = System.currentTimeMillis() - ref.createTime;
+            
+            // no referent?  was garbage collected
             if( item == null ) {
+                stats.reportCollected(age);
                 return null;
             }
-            if( item instanceof CachedItem ) {
-                CachedItem ci = (CachedItem)item;
-                
-                if( ci.isValidForCache() ) {
-                    return item;
+            
+            // expired?  purge
+            if(item instanceof CachedItem ) {
+                final CachedItem ci = (CachedItem)item;
+                if( ! ci.isValidForCache() ) {
+                    stats.reportExpired(age);
+                    remove(key);
+                    return null;
                 }
-                remove(key);
-                return null;
             }
+            
+            // otherwise return the value
+            stats.reportHit(age);
             return item;
         }
     }
@@ -259,7 +279,7 @@ public class ConcurrentCache<K,V> implements ConcurrentMap<K,V> {
     public V put(K key, V val) {
         //synchronized( this ) {
             //WeakReference<V> ref = new WeakReference<V>(val);
-            SoftReference<V> ref = new SoftReference<V>(val);
+            CacheEntry<V> ref = new CacheEntry<V>(val);
             
             cache.put(key, ref);
             return get(key);
@@ -324,7 +344,7 @@ public class ConcurrentCache<K,V> implements ConcurrentMap<K,V> {
     public V remove(Object key) {
         //synchronized( this ) {
             //WeakReference ref;
-            SoftReference ref;
+            CacheEntry ref;
             V item;
             
             ref = cache.remove(key);

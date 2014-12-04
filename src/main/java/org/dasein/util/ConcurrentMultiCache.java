@@ -26,6 +26,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -81,8 +82,10 @@ public class ConcurrentMultiCache<T> {
     /**
      * The class being managed by this cache, if any.
      */
-    private Class<T>                                  target = null;
+    private final Class<T> target;
 
+    private final CacheStats stats;
+    
     /**
      * Constructs a concurrent multi-cache that caches for unique keys specified by the
      * attributes. This constructor allows for automated loading into the cache.
@@ -90,34 +93,32 @@ public class ConcurrentMultiCache<T> {
      * @param attrs the unique keys that this cache will cache objects on
      */
     public ConcurrentMultiCache(Class<T> cls, Collection<String> attrs) {
-        super();
         target = cls;
+        stats = CacheStats.getInstance(cls);
         for( String attr : attrs ) {
             if( !caches.containsKey(attr) ) {
-                ConcurrentCache<Object,T> cache = new ConcurrentCache<Object,T>();
-
+                ConcurrentCache<Object,T> cache = new ConcurrentCache<Object,T>(stats);
                 caches.put(attr, cache);
                 order.add(attr);
             }
         }
     }
 
-    /**
-     * Constructs a concurrent multi-cache that caches for unique keys specified by the
-     * attributes.
-     * @param attrs the unique keys that this cache will cache objects on
-     */
-    public ConcurrentMultiCache(String ... attrs) {
-        super();
-        for( String attr : attrs ) {
-            if( !caches.containsKey(attr) ) {
-                ConcurrentCache<Object,T> cache = new ConcurrentCache<Object,T>();
-
-                caches.put(attr, cache);
-                order.add(attr);
-            }
-        }
-    }
+//    /**
+//     * Constructs a concurrent multi-cache that caches for unique keys specified by the
+//     * attributes.
+//     * @param attrs the unique keys that this cache will cache objects on
+//     */
+//    public ConcurrentMultiCache(String ... attrs) {
+//        for( String attr : attrs ) {
+//            if( !caches.containsKey(attr) ) {
+//                ConcurrentCache<Object,T> cache = new ConcurrentCache<Object,T>();
+//
+//                caches.put(attr, cache);
+//                order.add(attr);
+//            }
+//        }
+//    }
 
     /**
      * Constructs a concurrent multi-cache that caches for unique keys specified by the
@@ -126,16 +127,7 @@ public class ConcurrentMultiCache<T> {
      * @param attrs the unique keys that this cache will cache objects on
      */
     public ConcurrentMultiCache(Class<T> cls, String ... attrs) {
-        super();
-        target = cls;
-        for( String attr : attrs ) {
-            if( !caches.containsKey(attr) ) {
-                ConcurrentCache<Object,T> cache = new ConcurrentCache<Object,T>();
-
-                caches.put(attr, cache);
-                order.add(attr);
-            }
-        }
+        this(cls, Arrays.<String>asList(attrs));
     }
 
     /**
@@ -262,7 +254,10 @@ public class ConcurrentMultiCache<T> {
         }
         item = cache.get(val);
         if( item == null  && loader != null ) {
+            final long startTime = System.currentTimeMillis();
             item = loader.load(args);
+            final long elapsed = System.currentTimeMillis() - startTime;
+            stats.reportLoad(elapsed);
             if( item == null ) {
                 return null;
             }
